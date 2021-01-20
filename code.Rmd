@@ -1,0 +1,1525 @@
+---
+title: "Etape tris à plat et tris croisés du Mini projet de données catégorielles"
+author: "Saïda Guezoui / Benoit Gilles"
+date: "09/01/2021"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Importation des bibliothèques nécessaires : 
+```{r}
+
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(knitr)
+library(rmarkdown)
+library(markdown)
+library(FactoMineR)
+library(factoextra)
+library(corrplot)
+library(haven)
+library(geojsonio)
+library(plotrix)
+library(tidyr)
+library(labelled)
+library(sjlabelled)
+library(PropCIs)
+```
+
+# Lecture et pré-traitement des données : 
+
+
+## Importation de la table initiale :
+
+Le chemin de l'importation n'est pas précisé car la table est dans le répertoire du travail. 
+```{r}
+
+kenyadat = read_sas("kehr70fl.sas7bdat")
+
+```
+
+## Création de la table ménage qui contient les variables demandées : 
+
+A partir de la table des données initiales « kenyadat », on crée la table « menage » qui contient uniquement les variables HHID, HV005, HV009, HV014, HV024 jusqu’à HV026, HV201 jusqu’à HV228. 
+
+```{r}
+
+menage = kenyadat %>% select(HHID,HV001, HV005, HV009, HV014, HV024 : HV026, HV201 : HV228)
+
+```
+
+
+## Enregistrement de la table sous format Rdata dans le répertoire de travail : 
+```{r}
+
+save(menage, file = "menage.RData")
+
+```
+
+## Changement de type des variables non appropriées :
+
+La table ménage contient des variables de type ordinales et nominales mais R les a considérés comme variables numériques, on va donc convertir leur types en factor afin de les transformer à des variables appropriées. On nommera ces nouvelles variables avec un c devant son nom initial.   
+
+### Pour les variables nominales :  
+
+```{r}
+menage$cHV005<-factor(menage$HHID)
+menage$cHV001<-factor(menage$HV001)
+menage$cHV024<-factor(menage$HV024)
+menage$cHV025<-factor(menage$HV025)
+menage$cHV026<-factor(menage$HV026) 
+menage$cHV201<-factor(menage$HV201)
+menage$cHV202<-factor(menage$HV202)
+menage$cHV205<-factor(menage$HV205)
+menage$cHV213<-factor(menage$HV213)
+menage$cHV214<-factor(menage$HV214)
+menage$cHV215<-factor(menage$HV215)
+menage$cHV217<-factor(menage$HV217)
+menage$cHV219<-factor(menage$HV219)
+menage$cHV226<-factor(menage$HV226)
+
+
+```
+
+### Pour les variables ordinales : 
+```{r}
+menage$cHV206<-factor(menage$HV206)
+menage$cHV207<-factor(menage$HV207)
+menage$cHV208<-factor(menage$HV208)
+menage$cHV209<-factor(menage$HV209)
+menage$cHV210<-factor(menage$HV210)
+menage$cHV211<-factor(menage$HV211)
+menage$cHV212<-factor(menage$HV212)
+menage$cHV221<-factor(menage$HV221)
+menage$cHV225<-factor(menage$HV225)
+menage$cHV227<-factor(menage$HV227)
+menage$cHV228<-factor(menage$HV228)
+```
+
+## Etape 1 : Tris à plat des variables qui nous intéressent dans la table ménage :  
+
+
+```{r}
+
+menage$cHV206=set_labels(menage$cHV206, labels = c("Oui" = 1, "Non" = 0, "missing"= 9))
+menage$cHV207=set_labels(menage$cHV207, labels = c("Oui" = 1, "Non" = 0, "missing"= 9))
+menage$cHV208=set_labels(menage$cHV208, labels = c("Oui" = 1, "Non" = 0, "missing"= 9))
+menage$cHV209=set_labels(menage$cHV209, labels = c("Oui" = 1, "Non" = 0, "missing"= 9))
+
+menage$cHV024=set_labels(menage$cHV024, labels = c("Coast" = 1, "North Eastern" = 2,
+                                                   "Eastern" = 3, "Central" = 4,
+                                                   "Rift Valley" = 5, "Western" = 7,
+                                                   "Nyanza" = 8, "Nairobi" = 9))
+                              
+
+menage$cHV025=set_labels(menage$cHV025, labels = c("Urban" = 1, "Rural" = 2))
+
+menage$cHV215=set_labels(menage$cHV215, labels = c("No roof" = 11, "Thatch" = 12,
+                                                   "Dung" = 13, "Iron Sheet" = 21,
+                                                   "Tin cans" = 22, "Asbestos" = 31,
+                                                   "Concrete" = 32, "Tiles" = 33,"Other"=96))
+
+menage$cHV214=set_labels(menage$cHV214, labels = c("No walls" = 11, "Cane" = 12,
+                                                   "mud" = 13, "Grass" = 14,
+                                                   "Bamboo" = 21, "Stone" = 22,
+                                                   "Uncovered adobe" = 23, "Plywood" = 24,
+                                                   "Cardboard" = 25, "Reused wood" = 26,
+                                                   "Iron sheets" = 27, "Cement" = 31,
+                                                   "Stone with lime" = 32, "Bricks" = 33,
+                                                   "Cement blocks" = 34, "Covered adobe" = 35,
+                                                   "Wood planks" = 36, "Other" = 96, "missing" = 99))
+
+
+
+menage$cHV213=set_labels(menage$cHV213, labels = c("Earth" = 11, "Dung" = 12,
+                                                   "Wood planks" = 21, "Palm" = 22,
+                                                   "Parquet" = 31, "Vinyl" = 32,
+                                                   "Ceramic" = 33, "Cement" = 34,
+                                                   "Carpet" = 35, "Other" = 96, "missing" = 99))
+
+
+
+                               
+menage$cHV201=set_labels(menage$cHV201, labels = c( "Piped into dwelling" = 11, "Piped to yard" = 12,
+                                                   "Public tap" = 13, "Tube well" = 21,
+                                                   "Protected well" = 31, "Unprotected well" = 32,
+                                                   "Protected spring" = 41, "Unprotected spring" = 42,
+                                                   "River/dam/lake.." = 43, "Rainwater" = 51,
+                                                   "Tanker truck" = 61, "Cart with small tank" = 62,
+                                                   "Bottled water" = 71, "Other" = 96, "missing" = 99))
+
+
+
+menage$cHV205=set_labels(menage$cHV205, labels = c("Flush to piped sewer system" = 11, "Flush to septic tank" = 12,
+                                                   "Flush to pit latrine" = 13, "Flush to somewhere else" = 14,
+                                                   "Flush, dont know where" = 15, "Ventilated Improved Pit latrine" = 21,
+                                                   "Pit latrine with slab" = 22, "Pit latrine without slab" = 23,
+                                                   "No facility" = 31, "Composting toilet" = 41,
+                                                   "Bucket toilet" = 42, "Hanging toilet" = 43,
+                                                   "Other" = 96, "missing" = 99))
+
+
+
+menage$cHV226=set_labels(menage$cHV226, labels = c("Electricity" = 1, "LPG" = 2,
+                                                   "Natural gas" = 3, "Biogas" = 4,
+                                                   "Parafin" = 5, "Coal" = 6,
+                                                   "Charcoal" = 7, "Wood" = 8,
+                                                   "Straw" = 9, "Agricultural crop" = 10,
+                                                   "Animal dung" = 11, "No food cooked" = 95,
+                                                   "Other" = 96,"missing" = 99))
+
+
+menage$cHV221=set_labels(menage$cHV221, labels = c("Oui" = 1, "Non" = 0))
+menage$cHV211=set_labels(menage$cHV211, labels = c("Oui" = 1, "Non" = 0, "missing"= 9))
+menage$cHV212=set_labels(menage$cHV212, labels = c("Oui" = 1, "Non" = 0, "missing"= 9))
+```
+
+### source de l'eau potable : variable cHV201
+
+```{r}
+menage$cHV201=set_na(menage$cHV201, na = 99, as.tag = TRUE)
+eff_cHV201  <- table(as_label(menage$cHV201), useNA = "ifany")
+ecc_cHV201  <- cumsum(eff_cHV201)
+freq_cHV201 <- prop.table(eff_cHV201)*100 
+fcc_cHV201  <- cumsum(freq_cHV201)
+
+tab_cHV201 <-  cbind("Effectif" = eff_cHV201, "Effectif cumulé" = ecc_cHV201, "Fréquence"=freq_cHV201,"Fréquence cumulée"=fcc_cHV201)
+
+ep=as.vector(binom.test(eff_cHV201[1],sum(eff_cHV201),0.5,alternative="two.sided",conf.level=0.95)$conf.int*100)
+for(i in 2:(length(sjlabelled::get_labels(menage$cHV201))+1))
+{
+ep=rbind(ep, as.vector(binom.test(eff_cHV201[i],sum(eff_cHV201),0.5,
+alternative="two.sided",conf.level=0.95)$conf.int*100))
+}
+colnames(ep)=c("inf","sup")
+c1<-cbind(tab_cHV201,ep)
+```
+
+### L'accès à l'éléctricité : variable cHV206 
+
+```{r}
+menage$cHV206=set_na(menage$cHV206, na = 9, as.tag = TRUE)
+eff_cHV206  <- table(as_label(menage$cHV206), useNA = "ifany")
+ecc_cHV206  <- cumsum(eff_cHV206)
+freq_cHV206 <- prop.table(eff_cHV206)*100 
+fcc_cHV206  <- cumsum(freq_cHV206)
+
+tab_cHV206 <-  cbind("Effectif" = eff_cHV206, "Effectif cumulé" = ecc_cHV206, "Fréquence"=freq_cHV206,"Fréquence cumulée"=fcc_cHV206)
+
+el=as.vector(binom.test(eff_cHV206[1],sum(eff_cHV206),0.5,alternative="two.sided",conf.level=0.95)$conf.int*100)
+for(i in 2:(length(sjlabelled::get_labels(menage$cHV206))+1))
+{
+el=rbind(el, as.vector(binom.test(eff_cHV206[i],sum(eff_cHV206),0.5,
+alternative="two.sided",conf.level=0.95)$conf.int*100))
+}
+colnames(el)=c("inf","sup")
+c2<-cbind(tab_cHV206,el)
+
+```
+
+### Conditions matérielles de l'habitat : murs(cHV214), toit(cHV215) 
+
+```{r}
+# Conditions matérielles du murs
+
+print("Types des murs de l'habitat")
+menage$cHV214=set_na(menage$cHV214, na = 99, as.tag = TRUE)
+eff_cHV214  <- table(as_label(menage$cHV214), useNA = "ifany")
+ecc_cHV214  <- cumsum(eff_cHV214)
+freq_cHV214 <- prop.table(eff_cHV214)*100 
+fcc_cHV214  <- cumsum(freq_cHV214)
+
+tab_cHV214 <-  cbind("Effectif" = eff_cHV214, "Effectif cumulé" = ecc_cHV214, "Fréquence"=freq_cHV214,"Fréquence cumulée"=fcc_cHV214)
+
+
+mr=as.vector(binom.test(eff_cHV214[1],sum(eff_cHV214),0.5,alternative="two.sided",conf.level=0.95)$conf.int*100)
+for(i in 2:(length(sjlabelled::get_labels(menage$cHV214))+1))
+{
+mr=rbind(mr, as.vector(binom.test(eff_cHV214[i],sum(eff_cHV214),0.5,
+alternative="two.sided",conf.level=0.95)$conf.int*100))
+}
+colnames(mr)=c("inf","sup")
+c3<-cbind(tab_cHV214,mr)
+
+
+
+# Conditions matérielles du toit
+
+print("Types du toit de l'habitat ")
+
+menage$cHV215=set_na(menage$cHV215, na = 99, as.tag = TRUE)
+eff_cHV215  <- table(as_label(menage$cHV215), useNA = "ifany")
+ecc_cHV215  <- cumsum(eff_cHV215)
+freq_cHV215 <- prop.table(eff_cHV215)*100 
+fcc_cHV215  <- cumsum(freq_cHV215)
+
+tab_cHV215 <-  cbind("Effectif" = eff_cHV215, "Effectif cumulé" = ecc_cHV215, "Fréquence"=freq_cHV215,"Fréquence cumulée"=fcc_cHV215)
+
+tt=as.vector(binom.test(eff_cHV215[1],sum(eff_cHV215),0.5,alternative="two.sided",conf.level=0.95)$conf.int*100)
+for(i in 2:(length(sjlabelled::get_labels(menage$cHV215))+1))
+{
+tt=rbind(tt, as.vector(binom.test(eff_cHV215[i],sum(eff_cHV215),0.5,
+alternative="two.sided",conf.level=0.95)$conf.int*100))
+}
+colnames(tt)=c("inf","sup")
+c4<-cbind(tab_cHV215,tt)
+
+```
+
+### Types de toilettes dans un ménage : variable (cHV205)
+
+```{r}
+menage$cHV205=set_na(menage$cHV205, na = 99, as.tag = TRUE)
+eff_cHV205  <- table(as_label(menage$cHV205), useNA = "ifany")
+ecc_cHV205  <- cumsum(eff_cHV205)
+freq_cHV205 <- prop.table(eff_cHV205)*100 
+fcc_cHV205  <- cumsum(freq_cHV205)
+
+tab_cHV205 <-  cbind("Effectif" = eff_cHV205, "Effectif cumulé" = ecc_cHV205, "Fréquence"=freq_cHV205,"Fréquence cumulée"=fcc_cHV205)
+
+
+to=as.vector(binom.test(eff_cHV205[1],sum(eff_cHV205),0.5,alternative="two.sided",conf.level=0.95)$conf.int*100)
+for(i in 2:(length(sjlabelled::get_labels(menage$cHV205))+1))
+{
+to=rbind(to, as.vector(binom.test(eff_cHV205[i],sum(eff_cHV205),0.5,
+alternative="two.sided",conf.level=0.95)$conf.int*100))
+}
+colnames(to)=c("inf","sup")
+c5<-cbind(tab_cHV205,to)
+
+```
+
+### Accès à l'information : variable(cHV208) et (cHV207)
+
+```{r}
+ 
+print("Possession de la télévision")
+
+menage$cHV208=set_na(menage$cHV208, na = 9, as.tag = TRUE)
+eff_cHV208  <- table(as_label(menage$cHV208), useNA = "ifany")
+ecc_cHV208  <- cumsum(eff_cHV208)
+freq_cHV208 <- prop.table(eff_cHV208)*100 
+fcc_cHV208  <- cumsum(freq_cHV208)
+
+tab_cHV208 <-  cbind("Effectif" = eff_cHV208, "Effectif cumulé" = ecc_cHV208, "Fréquence"=freq_cHV208,"Fréquence cumulée"=fcc_cHV208)
+
+tv=as.vector(binom.test(eff_cHV208[1],sum(eff_cHV208),0.5,alternative="two.sided",conf.level=0.95)$conf.int*100)
+for(i in 2:(length(sjlabelled::get_labels(menage$cHV208))+1))
+{
+tv=rbind(tv, as.vector(binom.test(eff_cHV208[i],sum(eff_cHV208),0.5,
+alternative="two.sided",conf.level=0.95)$conf.int*100))
+}
+colnames(tv)=c("inf","sup")
+c6<-cbind(tab_cHV208,tv)
+
+print("Possession de la radio")
+
+menage$cHV207=set_na(menage$cHV207, na = 9, as.tag = TRUE)
+eff_cHV207  <- table(as_label(menage$cHV207), useNA = "ifany")
+ecc_cHV207  <- cumsum(eff_cHV207)
+freq_cHV207 <- prop.table(eff_cHV207)*100 
+fcc_cHV207  <- cumsum(freq_cHV207)
+
+tab_cHV207 <-  cbind("Effectif" = eff_cHV207, "Effectif cumulé" = ecc_cHV207, "Fréquence"=freq_cHV207,"Fréquence cumulée"=fcc_cHV207)
+
+ra=as.vector(binom.test(eff_cHV207[1],sum(eff_cHV207),0.5,alternative="two.sided",conf.level=0.95)$conf.int*100)
+for(i in 2:(length(sjlabelled::get_labels(menage$cHV207))+1))
+{
+ra=rbind(ra, as.vector(binom.test(eff_cHV207[i],sum(eff_cHV207),0.5,
+alternative="two.sided",conf.level=0.95)$conf.int*100))
+}
+colnames(ra)=c("inf","sup")
+c7<-cbind(tab_cHV207,ra)
+
+```
+
+
+### Accès aux moyen de transport : moto (cHV211), voiture (cHV212)
+
+```{r}
+
+print("Possession de la moto ")
+menage$cHV211=set_na(menage$cHV211, na = 9, as.tag = TRUE)
+
+eff_cHV211  <- table(as_label(menage$cHV211), useNA = "ifany") 
+ecc_cHV211  <- cumsum(eff_cHV211)
+freq_cHV211<- prop.table(eff_cHV211)*100 
+fcc_cHV211  <- cumsum(freq_cHV211)
+
+tab_cHV211 <- cbind("Effectif" = eff_cHV211, "Effectif cumulé" = ecc_cHV211, "Fréquence"=freq_cHV211,"Fréquence cumulée"=fcc_cHV211)
+
+mo=as.vector(binom.test(eff_cHV211[1],sum(eff_cHV211),0.5,alternative="two.sided",conf.level=0.95)$conf.int*100)
+for(i in 2:(length(sjlabelled::get_labels(menage$cHV211))+1))
+{
+mo=rbind(mo, as.vector(binom.test(eff_cHV211[i],sum(eff_cHV211),0.5,
+alternative="two.sided",conf.level=0.95)$conf.int*100))
+}
+colnames(mo)=c("inf","sup")
+c8<-cbind(tab_cHV211,mo)
+
+print("Possession de voiture")
+menage$cHV212=set_na(menage$cHV212, na = 9, as.tag = TRUE)
+
+eff_cHV212  <- table(as_label(menage$cHV212), useNA = "ifany")
+ecc_cHV212  <- cumsum(eff_cHV212)
+freq_cHV212 <- prop.table(eff_cHV212)*100
+fcc_cHV212  <- cumsum(freq_cHV212)
+
+tab_cHV212 <- cbind("Effectif" = eff_cHV212, "Effectif cumulé" = ecc_cHV212, "Fréquence"=freq_cHV212,"Fréquence cumulée"=fcc_cHV212)
+
+
+vo=as.vector(binom.test(eff_cHV212[1],sum(eff_cHV212),0.5,alternative="two.sided",conf.level=0.95)$conf.int*100)
+for(i in 2:(length(sjlabelled::get_labels(menage$cHV212))+1))
+{
+vo=rbind(vo, as.vector(binom.test(eff_cHV212[i],sum(eff_cHV212),0.5,
+alternative="two.sided",conf.level=0.95)$conf.int*100))
+}
+colnames(vo)=c("inf","sup")
+c9<-cbind(tab_cHV212,vo)
+
+```
+
+### Accès aux moyens de communication (possession d'un téléphone) : variables (cHV221)
+
+```{r}
+
+eff_cHV221  <- table(as_label(menage$cHV221), useNA = "ifany") 
+ecc_cHV221  <- cumsum(eff_cHV221)
+freq_cHV221 <- prop.table(eff_cHV221)*100 
+fcc_cHV221  <- cumsum(freq_cHV221)
+
+tab_cHV221 <- cbind("Effectif" = eff_cHV221, "Effectif cumulé" = ecc_cHV221, "Fréquence"=freq_cHV221,"Fréquence cumulée"=fcc_cHV221)
+
+
+
+te=as.vector(binom.test(eff_cHV221[1],sum(eff_cHV221),0.5,alternative="two.sided",conf.level=0.95)$conf.int*100)
+for(i in 2:(length(sjlabelled::get_labels(menage$cHV221))+1))
+{
+te=rbind(te, as.vector(binom.test(eff_cHV221[i],sum(eff_cHV221),0.5,
+alternative="two.sided",conf.level=0.95)$conf.int*100))
+}
+colnames(te)=c("inf","sup")
+c10<-cbind(tab_cHV221,te)
+
+```
+
+### Type de cuisine possédée : variables (cHV226)
+
+```{r}
+
+menage$cHV226=set_na(menage$cHV226, na = 99, as.tag = TRUE)
+eff_cHV226  <- table(as_label(menage$cHV226), useNA = "ifany")
+ecc_cHV226  <- cumsum(eff_cHV226)
+freq_cHV226 <- prop.table(eff_cHV226)*100 
+fcc_cHV226  <- cumsum(freq_cHV226)
+
+tab_cHV226 <-  cbind("Effectif" = eff_cHV226, "Effectif cumulé" = ecc_cHV226, "Fréquence"=freq_cHV226,"Fréquence cumulée"=fcc_cHV226)
+
+
+cu=as.vector(binom.test(eff_cHV226[1],sum(eff_cHV226),0.5,alternative="two.sided",conf.level=0.95)$conf.int*100)
+for(i in 2:(length(sjlabelled::get_labels(menage$cHV226))+1))
+{
+cu=rbind(cu, as.vector(binom.test(eff_cHV226[i],sum(eff_cHV226),0.5,
+alternative="two.sided",conf.level=0.95)$conf.int*100))
+}
+colnames(cu)=c("inf","sup")
+c11<-cbind(tab_cHV226,cu)
+
+```
+
+### Possession d'un réfrigirateur : variable (cHV209)
+
+```{r}
+menage$cHV209=set_na(menage$cHV209, na = 9, as.tag = TRUE)
+
+eff_cHV209  <- table(as_label(menage$cHV209), useNA = "ifany")                      
+ecc_cHV209  <- cumsum(eff_cHV209)                        
+freq_cHV209 <- prop.table(eff_cHV209)*100                     
+fcc_cHV209  <- cumsum(freq_cHV209)
+
+tab_cHV209 <- cbind("Effectif" = eff_cHV209, "Effectif cumulé" = ecc_cHV209, "Fréquence"=freq_cHV209,"Fréquence cumulée"=fcc_cHV209)
+
+re=as.vector(binom.test(eff_cHV209[1],sum(eff_cHV209),0.5,alternative="two.sided",conf.level=0.95)$conf.int*100)
+for(i in 2:(length(sjlabelled::get_labels(menage$cHV209))+1))
+{
+re=rbind(re, as.vector(binom.test(eff_cHV209[i],sum(eff_cHV209),0.5,
+alternative="two.sided",conf.level=0.95)$conf.int*100))
+}
+colnames(re)=c("inf","sup")
+c12<- cbind(tab_cHV209,re)
+
+```
+
+### Région : variable cHV024
+```{r}
+eff_cHV024  <- table(as_label(menage$cHV024), useNA = "ifany") 
+ecc_cHV024  <- cumsum(eff_cHV024)
+freq_cHV024 <- prop.table(eff_cHV024)*100 
+fcc_cHV024  <- cumsum(freq_cHV024)
+
+tab_cHV024 <- cbind("Effectif" = eff_cHV024, "Effectif cumulé" = ecc_cHV024, "Fréquence"=freq_cHV024,"Fréquence cumulée"=fcc_cHV024)
+
+
+```
+
+### Lieu de résidence : variable cHV025
+```{r}
+
+
+eff_cHV025  <- table(as_label(menage$cHV025), useNA = "ifany") 
+ecc_cHV025  <- cumsum(eff_cHV025)
+freq_cHV025 <- prop.table(eff_cHV025)*100 
+fcc_cHV025  <- cumsum(freq_cHV025)
+
+tab_cHV025 <- cbind("Effectif" = eff_cHV025, "Effectif cumulé" = ecc_cHV025, "Fréquence"=freq_cHV025,"Fréquence cumulée"=fcc_cHV025)
+
+
+
+b=prop.table(table(as_label(menage$cHV025)))
+c=cbind(Fréquence=eff_cHV025,Pourcentage=round(b*100,2))
+aa=prop.test(table(menage$cHV025))
+CI.urban=as.vector(aa$conf.int)
+bb=prop.test(table(relevel(as.factor(menage$cHV025), "2")))
+CI.rural=as.vector(bb$conf.int)
+cc=as.data.frame(rbind(CI.urban,CI.rural))
+colnames(cc)=c("IC.lower","IC.upper")
+rownames(cc)=get_labels(menage$cHV025)
+c13 <- cbind(c,cc)
+
+```
+
+## Représentation graphique : 
+
+
+### Histogramme de la variable cHV201 (source de l'eau potable) : 
+
+```{r}
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV201)),
+                         fill= "cadetblue3") +
+                ggtitle(" Type de source d'eau potable par ménage ") +
+                labs(x = "Les sources de l'eau potable", 
+                     y = "Nombre de ménages") + coord_flip()
+```
+
+
+### Histogramme de la variable cHV206 (accès à l'éléctricité) : 
+
+```{r}
+
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV206)),
+                         fill= "cadetblue3") +
+                ggtitle("Accès à l'éléctricité ")+
+                labs(x = "l'accès ou le non accès à l'éléctricité", 
+                     y = "Nombre de ménages")
+
+# Diagramme circulaire 
+
+pie3D(freq_cHV206,labels=c("Non", "Oui","NA"),explode=0.1,
+   main=" Proportion de ménages ayant accès à l'électricité ")
+
+```
+
+### Histogramme des conditions matérielles des murs d'un ménage(cHV214) : 
+
+```{r}
+
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV214)),
+                         fill= "cadetblue3") +
+                ggtitle("Conditions matérielles des murs ")+
+                labs(x = "Types des murs d'un ménage", 
+                     y = "Nombre de ménages")+ coord_flip()
+
+```
+
+### Histogramme des conditions matérielles de toit d'un ménage(cHV215) : 
+
+```{r}
+
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV215)),
+                         fill= "cadetblue3") +
+                ggtitle("Conditions matérielles du toit ")+
+                labs(x = "Types du toit d'un ménage", 
+                     y = "Nombre de ménages", cex.axis=0.8)+ coord_flip()
+
+```
+
+
+### Histogramme de la variable cHV205 (Types de toilettes dans un ménage) : 
+
+```{r}
+
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV205)),
+                         fill= "cadetblue3") +
+                ggtitle("Types de toilettes")+
+                labs(x = "", 
+                     y = "Nombre de ménages")+ coord_flip()
+
+```
+
+### Histogramme de la variable cHV208 (possession de la télévision) : 
+
+```{r}
+
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV208)),
+                         fill= "cadetblue3") +
+                ggtitle("Possession de la télévision")+
+                labs(x = "L'accès ou le non accès à la télévision", 
+                     y = "Nombre de ménages")
+
+pie3D(freq_cHV208,labels=c("Non", "Oui","NA"),explode=0.1,
+   main=" Proportion des ménages qui possèdent une télévision ")
+
+```
+
+### Histogramme de la variable cHV207 (possession de la radio) : 
+
+```{r}
+
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV207)),
+                         fill= "cadetblue3") +
+                ggtitle("Possession de la radio")+
+                labs(x = "L'accès ou le non accès à la radio", 
+                     y = "Nombre de ménages")
+
+pie3D(freq_cHV207,labels=c("Non", "Oui","NA"),explode=0.1,
+   main=" Proportion des ménages qui possèdent une radio ")
+
+```
+
+### Histogramme de la variable cHV211 (possession de la moto) : 
+
+```{r}
+
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV211)),
+                         fill= "cadetblue3") +
+                ggtitle("Possession de la moto")+
+                labs(x = "L'accès ou le non accès à la moto", 
+                     y = "Nombre de ménages")
+
+pie3D(freq_cHV211,labels=c("Non", "Oui"),explode=0.1,
+   main=" Figure 9b : possession de la moto ")
+```
+
+### Histogramme de la variable cHV212 (possession de la voiture) : 
+
+```{r}
+
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV212)),
+                         fill= "cadetblue3") +
+                ggtitle("Possession de la voiture")+
+                labs(x = "L'accès ou le non accès à la voiture", 
+                     y = "Nombre de ménages")
+
+pie3D(freq_cHV212,labels=c("Non", "Oui"),explode=0.1,
+   main=" Possession de la voiture ")
+```
+
+### Histogramme de la variable cHV221 (possession d'un téléphone) : 
+
+```{r}
+
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV221)),
+                         fill= "cadetblue3") +
+                ggtitle("Possession d'un téléphone")+
+                labs(x = "L'accès ou le non accès à un téléphone", 
+                     y = "Nombre de ménages")
+
+pie3D(freq_cHV221,labels=c("Non", "Oui"),explode=0.1,
+   main=" Possession d'un téléphone")
+```
+
+### Histogramme de la variable cHV226 (Types de cuisine dans un ménage) : 
+
+```{r}
+
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV226)),
+                         fill= "cadetblue3") +
+                ggtitle("Types de cuisines dans un ménage")+
+                labs(x = "Types de cuisines", 
+                     y = "Nombre de ménages")+ coord_flip()
+
+```
+
+
+### Histogramme de la variable cHV209 (possession d'un réfrigirateur) : 
+
+```{r}
+
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV209)),
+                         fill= "cadetblue3") +
+                ggtitle("Possession d'un réfrigirateur")+
+                labs(x = "L'accès ou le non accès à un réfrigirateur", 
+                     y = "Nombre de ménages")
+
+pie3D(freq_cHV209,labels=c("Non", "Oui"),explode=0.1,
+   main=" Possession d'un réfrigirateur ")
+
+```
+
+### Histogramme de la région : variable (cHV024)
+
+```{r}
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV024)),
+                         fill= "cadetblue3") +
+                ggtitle(" les différentes régions")+
+                labs(x = "Les différentes régions", 
+                     y = "Nombre de ménages")+ coord_flip()
+```
+
+
+### Diagramme circulaire du lieu de résidence (cHV025) : 
+```{r}
+ggplot(menage)+ geom_bar(aes(x=as_label(cHV025)),
+                         fill= "cadetblue3") +
+                ggtitle("Figure 10b : lieu de résidence")+
+                labs(x = "Lieu de résidence", 
+                     y = "Nombre de ménages")
+
+pie3D(freq_cHV025,labels=c("Urbain", "Rural"),explode=0.1,
+   main=" Proportion de ménages selon le lieu de résidence ")
+```
+## Etape 2 : Tris croisés des variables qui nous intéressent  :  
+
+## Création d'une table contenant que des variables permettant de répondre à notre problèmatique 
+
+```{r}
+# Selection des variables 
+tab_vb_int <- menage %>% select(HV024, HV025, HV201, HV205, HV206, HV207, HV208, HV214, HV215, HV226)
+
+tab_vb_int=subset(tab_vb_int, (HV201!=96) & (HV205!=96) & (HV214!=96) &
+                    (HV215!=96) & (HV226!=96) | is.na(HV201) | is.na(HV205) | is.na(HV214) | is.na(HV215) | is.na(HV226))
+
+```
+
+## Recodage et réduction des modalités de certaines variables qualitatives
+
+### Type de source d’eau potable
+```{r}
+
+tab_vb_int$HV201[tab_vb_int$HV201 < 30 | tab_vb_int$HV201 == 71] <- 1
+tab_vb_int$HV201[tab_vb_int$HV201 >= 30 & tab_vb_int$HV201 != 71] <- 0
+
+
+```
+
+### Type de toilettes 
+```{r}
+
+tab_vb_int$HV205[tab_vb_int$HV205 < 30] <- 1
+tab_vb_int$HV205[tab_vb_int$HV205 >= 30] <- 0
+
+```
+
+### Matériel des murs 
+```{r}
+tab_vb_int$HV214[tab_vb_int$HV214 < 20] <- 0
+tab_vb_int$HV214[tab_vb_int$HV214 > 20] <- 1
+
+```
+
+### Matériel du toit 
+```{r}
+tab_vb_int$HV215[tab_vb_int$HV215 < 20] <- 0
+tab_vb_int$HV215[tab_vb_int$HV215 > 20] <- 1
+
+```
+
+### Type de cuisine 
+```{r}
+
+tab_vb_int$HV226[ tab_vb_int$HV226 < 11] <- 1
+tab_vb_int$HV226[tab_vb_int$HV226 ==95 | tab_vb_int$HV226 == 11 ] <- 0
+
+```
+
+## Création de la variable pauvreté extrème et pauvreté matérielle 
+```{r}
+p_extreme    <- tab_vb_int$HV206 + tab_vb_int$HV201 + tab_vb_int$HV214 + tab_vb_int$HV215
+p_materielle <- tab_vb_int$HV205 + tab_vb_int$HV207 + tab_vb_int$HV208 + tab_vb_int$HV226
+
+
+# Ajout des 2 variables à notre tableau
+tab_vb_int<-cbind(tab_vb_int, p_extreme ,p_materielle) 
+var_label(tab_vb_int$p_extreme) ="Score_P_extreme"
+var_label(tab_vb_int$p_materielle) ="Score_P_materielle"
+
+tab_vb_int$p_extreme=set_labels(tab_vb_int$p_extreme, labels = c("Extrêmement pauvre" = 0, "Pauvre" = 1, "Moyen"= 2, "aisé"= 3, "Riche"= 4))
+
+tab_vb_int$p_materielle=set_labels(tab_vb_int$p_materielle, labels = c("Aucun bien" = 0, "1 bien essentiel" = 1, "2 biens essentiels"= 2, "3 biens esssentiels"= 3, "Tous les biens essentiels"= 4))
+tab_vb_int$HV024=set_labels(tab_vb_int$HV024, labels = c("Coast" = 1, "N.Eastern" = 2,
+                                                   "Eastern" = 3, "Central" = 4,
+                                                   "R.Valley" = 5, "Western" = 7,
+                                                   "Nyanza" = 8, "Nairobi" = 9))
+                              
+
+tab_vb_int$HV025=set_labels(tab_vb_int$HV025, labels = c("Urban" = 1, "Rural" = 2))
+```
+
+## Croisement entre les variables pauvreté matérielle et lieu de résidence 
+
+### Calcul des effectifs 
+```{r}
+
+Crois1 <- table(as_label(tab_vb_int$p_materielle),as_label(tab_vb_int$HV025), useNA="ifany")
+
+tab_efm1 = cbind(Crois1, efm_ligne1=apply(Crois1,1,sum))          
+Crois1_marg = as.data.frame(rbind(tab_efm1,efm_col1=apply(tab_efm1,2,sum)))
+rownames(Crois1)[6]<-"MissingData"
+
+print("Effectifs")
+Crois1
+cat("\n\n\n")
+print("Fréquence")
+prop.table(Crois1)*100
+cat("\n\n\n")
+print("Pourcentage en lignes")
+prop.table(Crois1,1)*100
+cat("\n\n\n")
+print("Pourcentage en colonnes")
+prop.table(Crois1,2)*100
+
+``` 
+
+
+
+
+### Profil ligne et profil ligne moyen 
+```{r}
+profil = function(x)x/sum(x)
+
+prof.ligne1 = t(apply(Crois1,1,profil))
+p.ligne1=rbind(prof.ligne1, plm_Crois1=Crois1_marg[7,1:2]/sum(Crois1))
+somme_l = t(apply(p.ligne1,1,sum))
+"Profil ligne et profil ligne moyen"
+p.ligne1
+```
+### Profil colonne et profil colonne moyen 
+```{r}
+"Profil colonne et profil colonne moyen"
+cat("\n")
+prof.colonne1 = apply(Crois1,2,profil)
+p.col1 = cbind(prof.colonne1, pcm_Crois1=Crois1_marg[1:6,3]/sum(Crois1))
+
+somme_m1 = apply(p.col1,2,sum)
+p.col1
+
+```
+
+### Test du Khi2 
+```{r}
+" Test du chi2"
+test1=chisq.test(Crois1)
+test1
+" Effectifs théoriques"
+tab_obs1 = test1$expected
+round(tab_obs1,3)
+cat("\n\n\n")
+
+"Ecart entre effectifs observés et théoriques"
+ecart1 = tab_obs1-test1$observed 
+ecart1
+cat("\n\n\n")
+
+"Contribution des lignes à la statistique du chi 2"
+contrib.chi2_l1 = apply(test1$res^2,1,sum)
+round(contrib.chi2_l1,3)
+cat("\n\n\n")
+
+"Contribution des colonnes à la statistique du chi 2"
+contrib.chi2_col1 =apply(test1$res^2,2,sum)
+round(contrib.chi2_col1,3)
+cat("\n\n\n")
+
+"Indice du Khi2"
+test1$statistic
+```
+
+### Représentation des profils lignes 
+```{r}
+
+rownames(Crois1) <- c("0 bien" , "1 bien", "2 biens", "3 biens", "4 biens","NA")
+
+barplot(t(prop.table(Crois1,1)*100), 
+        legend.text=c("Urbain","Rural"), 
+        cex.names=1, xlab="Nombre de ménages", 
+        cex.axis=0.7,
+        cex.lab=1,
+        main=" Pauvreté matérielle selon le lieu de résidence", 
+        col=c("orange","cadetblue3"),
+        horiz=T , las=1)
+
+
+```
+
+### Représentation des profils colonnes 
+```{r}
+barplot(prop.table(Crois1,2)*100, 
+        legend.text=rownames(Crois1), 
+        cex.names=1, names.arg=c("Urbain","Rural"),
+        cex.axis=1, 
+        main=" Pauvreté matérielle selon le lieu de résidence",
+        col=c("red","darkorange", "cadetblue3", "white", "violet", "black"))
+
+```
+
+
+## Croisement entre les variables pauvreté extrème et lieu d résidence 
+
+### Calcul des effectifs 
+```{r}
+
+Crois2 <- table(as_label(tab_vb_int$p_extreme),as_label(tab_vb_int$HV025), useNA="ifany")
+
+tab_efm2 = cbind(Crois2, efm_ligne=apply(Crois2,1,sum))          
+Crois2_marg = as.data.frame(rbind(tab_efm2,efm_col=apply(tab_efm2,2,sum)))
+rownames(Crois2)[6]<-"MissingData"
+print("Effectifs")
+Crois2
+cat("\n\n\n")
+print("Fréquence")
+prop.table(Crois2)*100
+cat("\n\n\n")
+print("Pourcentage en lignes")
+prop.table(Crois2,1)*100
+cat("\n\n\n")
+print("Pourcentage en colonnes")
+prop.table(Crois2,2)*100
+
+
+```
+
+
+
+### Profil ligne et profil ligne moyen 
+```{r}
+"Profil ligne et profil ligne moyen"
+prof.ligne2 = t(apply(Crois2,1,profil))
+p.ligne2=rbind(prof.ligne2, plm_Crois2=Crois2_marg[7,1:2]/sum(Crois2))
+somme_2 = t(apply(p.ligne2,1,sum))
+p.ligne2
+```
+### Profil colonne et profil colonne moyen 
+```{r}
+"Profil colonne et profil colonne moyen"
+cat("\n")
+prof.colonne2 = apply(Crois2,2,profil)
+p.col2 = cbind(prof.colonne2, pcm_Crois2=Crois2_marg[1:6,3]/sum(Crois2))
+
+somme_m2 = apply(p.col2,2,sum)
+p.col2
+
+```
+
+
+### Test du Khi2 
+```{r}
+" Test du chi2"
+test2=chisq.test(Crois2)
+test2
+cat("\n\n\n")
+" Effectifs théoriques"
+tab_obs2 = test2$expected
+round(tab_obs2,3)
+cat("\n\n\n")
+
+"Ecart entre effectifs observés et théoriques"
+ecart2 = tab_obs2-test2$observed 
+ecart2
+cat("\n\n\n")
+
+"Contribution des lignes à la statistique du chi 2"
+contrib.chi2_l2 = apply(test2$res^2,1,sum)
+round(contrib.chi2_l2,3)
+cat("\n\n\n")
+
+"Contribution des colonnes à la statistique du chi 2"
+contrib.chi2_col2 =apply(test2$res^2,2,sum)
+round(contrib.chi2_col2,3)
+cat("\n\n\n")
+
+"Indice du Khi2"
+test2$statistic
+```
+### Représentation des profils lignes 
+
+```{r}
+
+rownames(Crois2) <- c("E.pauvre" , "Pauvre", "Moyen", "aisé", "Riche","NA")
+
+barplot(t(prop.table(Crois2,1)*100), 
+        legend.text=c("Urbain","Rural"), 
+        cex.names=0.9, xlab="Score biens matériels", 
+        cex.axis=0.7,
+        main="Profils lignes du couple (p_extreme HV025)", 
+        col=c("orange","cadetblue3"), 
+        horiz = T, las=1)
+```
+
+### Représentation des profils colonnes
+```{r}
+
+barplot(prop.table(Crois2,2)*100, 
+        legend.text=rownames(Crois2), 
+        cex.names=1, names.arg=c("Urbain","Rural"),
+        cex.axis=0.5, 
+        main="Pauvreté extrême selon le lieu de résidence",
+        col=c("brown","darkorange", "cadetblue3", "white", "violet", "black"))
+
+
+```
+
+
+## Croisement entre les variables pauvreté matérielle et région 
+
+### Calcul des effectifs 
+```{r}
+
+Crois3 <- table(as_label(tab_vb_int$p_materielle),as_label(tab_vb_int$HV024), useNA="ifany")
+
+tab_efm3 = cbind(Crois3, efm_ligne=apply(Crois3,1,sum))          
+Crois3_marg = as.data.frame(rbind(tab_efm3,efm_col3=apply(tab_efm3,2,sum)))
+rownames(Crois3)[6]<-"MissingData"
+
+
+print("Effectifs")
+Crois3
+cat("\n\n\n")
+print("Fréquence")
+prop.table(Crois3)*100
+cat("\n\n\n")
+print("Pourcentage en lignes")
+prop.table(Crois3,1)*100
+cat("\n\n\n")
+print("Pourcentage en colonnes")
+prop.table(Crois3,2)*100
+
+``` 
+
+
+### Profil ligne et profil ligne moyen 
+```{r}
+"Profil ligne et profil ligne moyen"
+prof.ligne3 = t(apply(Crois3,1,profil))
+p.ligne3=rbind(prof.ligne3, plm_Crois1=Crois3_marg[7,1:8]/sum(Crois3))
+somme_3 = t(apply(p.ligne3,1,sum))
+p.ligne3
+```
+### Profil colonne et profil colonne moyen 
+```{r}
+"Profil colonne et profil colonne moyen"
+cat("\n")
+prof.colonne3 = apply(Crois3,2,profil)
+p.col3 = cbind(prof.colonne3, pcm_Crois3=Crois3_marg[1:6,9]/sum(Crois3))
+
+somme_m3 = apply(p.col3,2,sum)
+p.col3
+
+```
+
+
+### Test du Khi2 
+```{r}
+"Test du chi2"
+test3=chisq.test(Crois3)
+test3
+cat("\n\n\n")
+
+"Effectifs théoriques"
+tab_obs3 = test3$expected
+round(tab_obs3,3)
+cat("\n\n\n")
+
+"Ecart entre effectifs observés et théoriques"
+ecart3 = tab_obs3-test3$observed 
+ecart3
+cat("\n\n\n")
+
+"Contribution des lignes à la statistique du chi 2"
+contrib.chi2_l3 = apply(test3$res^2,1,sum)
+round(contrib.chi2_l3,3)
+cat("\n\n\n")
+
+"Contribution des colonnes à la statistique du chi 2"
+contrib.chi2_col3 =apply(test3$res^2,2,sum)
+round(contrib.chi2_col3,3)
+cat("\n\n\n")
+
+"Indice du Khi2"
+test3$statistic
+```
+
+### Représentation des profils lignes 
+```{r}
+rownames(Crois3) <- c("0 bien" , "1 bien", "2 biens", "3 biens", "4 biens","NA")
+
+barplot(t(prop.table(Crois3,1)*100),
+        legend.text=colnames(Crois3),
+        cex.names=1,
+        cex.axis=,
+        main="Pauvreté matérielle selon les régions",
+        col=c("darkorange","white", "cadetblue3", "green", "violet", "purple","darkgreen","brown"))
+```
+
+### Représentation des profils colonnes
+```{r}
+barplot(prop.table(Crois3,2)*100,
+        legend.text=rownames(Crois3),
+        cex.names=0.8,
+        cex.axis=1,
+        main="Pauvreté matérielle selon les régions ",
+        col=c("red","darkorange", "cadetblue3", "white", "darkgreen","purple"), 
+        horiz=T, las=1)
+```
+
+
+## Croisement entre les variables pauvreté extrème et region
+
+### Calcul des effectifs 
+```{r}
+
+Crois4 <- table(as_label(tab_vb_int$p_extreme),as_label(tab_vb_int$HV024), useNA="ifany")
+
+tab_efm4 = cbind(Crois4, efm_ligne4=apply(Crois4,1,sum))          
+Crois4_marg = as.data.frame(rbind(tab_efm4,efm_col4=apply(tab_efm4,2,sum)))
+rownames(Crois4)[6]<-"MissingData"
+
+
+
+print("Effectifs")
+Crois4
+cat("\n\n\n")
+print("Fréquence")
+prop.table(Crois4)*100
+cat("\n\n\n")
+print("Pourcentage en lignes")
+prop.table(Crois4,1)*100
+cat("\n\n\n")
+print("Pourcentage en colonnes")
+prop.table(Crois4,2)*100
+``` 
+
+
+### Profil ligne et profil ligne moyen 
+```{r}
+"Profil ligne et profil ligne moyen"
+prof.ligne4 = t(apply(Crois4,1,profil))
+p.ligne4=rbind(prof.ligne4, plm_Crois4=Crois4_marg[7,1:8]/sum(Crois4))
+somme_4 = t(apply(p.ligne4,1,sum))
+p.ligne4
+```
+### Profil colonne et profil colonne moyen 
+```{r}
+"Profil colonne et profil colonne moyen"
+cat("\n")
+prof.colonne4 = apply(Crois4,2,profil)
+p.col4 = cbind(prof.colonne4, pcm_Crois4=Crois4_marg[1:6,9]/sum(Crois4))
+
+somme_4 = apply(p.col4,2,sum)
+p.col4
+
+```
+
+### Test du Khi2 
+```{r}
+" Test du chi2"
+test4=chisq.test(Crois4)
+test4
+cat("\n\n\n")
+" Effectifs théoriques"
+tab_obs4 = test4$expected
+round(tab_obs4,3)
+cat("\n\n\n")
+
+"Ecart entre effectifs observés et théoriques"
+ecart4 = tab_obs4-test4$observed 
+ecart4
+cat("\n\n\n")
+
+"Contribution des lignes à la statistique du chi 2"
+contrib.chi2_l4 = apply(test4$res^2,1,sum)
+round(contrib.chi2_l4,3)
+cat("\n\n\n")
+
+"Contribution des colonnes à la statistique du chi 2"
+contrib.chi2_col4 =apply(test4$res^2,2,sum)
+round(contrib.chi2_col4,3)
+cat("\n\n\n")
+
+"Indice du Khi2"
+test4$statistic
+```
+
+### Représentation des profils lignes
+```{r}
+
+rownames(Crois4) <- c("E.pauvre" , "Pauvre", "Moyen", "aisé", "Riche","NA")
+
+barplot(t(prop.table(Crois4,1)*100),
+        legend.text=colnames(Crois4),
+        cex.names=1,
+        cex.axis=0.5,
+        main="Profils lignes du couple (p_extreme HV024)",
+        col=c("white","darkorange", "cadetblue3", "green", "violet", "purple","darkgreen","brown"))
+
+```
+
+### Représentation des profils colonnes
+```{r}
+barplot(prop.table(Crois4,2)*100,
+        legend.text=rownames(Crois4),
+        cex.names=0.8,
+        cex.axis=1,
+        main="Figure 15 : pauvreté extrême selon les régions",
+        col=c("brown","darkorange", "cadetblue3", "white", "darkgreen","black"), 
+        horiz = T, las=1)
+
+
+```
+
+
+## Croisement entre les variables HV025 (lieu de résidence) et HV024 (region)
+
+### Calcul des effectifs 
+```{r}
+Crois5 <- table(as_label(tab_vb_int$HV025),as_label(tab_vb_int$HV024), useNA="ifany")
+
+tab_efm5 = cbind(Crois5, efm_ligne5=apply(Crois5,1,sum))          
+Crois5_marg = as.data.frame(rbind(tab_efm5,efm_col5=apply(tab_efm5,2,sum)))
+
+
+print("Effectifs")
+Crois5
+cat("\n\n\n")
+print("Fréquence")
+prop.table(Crois5)*100
+cat("\n\n\n")
+print("Pourcentage en lignes")
+prop.table(Crois5,1)*100
+cat("\n\n\n")
+print("Pourcentage en colonnes")
+prop.table(Crois5,2)*100
+```
+
+
+
+
+
+### Profil ligne et profil ligne moyen 
+```{r}
+"Profil ligne et profil ligne moyen"
+prof.ligne5 = t(apply(Crois5,1,profil))
+p.ligne5=rbind(prof.ligne5, plm_Crois5=Crois5_marg[3,1:8]/sum(Crois5))
+somme_5 = t(apply(p.ligne5,1,sum))
+p.ligne5
+
+```
+
+### Profil colonne et profil colonne moyen 
+```{r}
+"Profil colonne et profil colonne moyen"
+cat("\n")
+prof.colonne5 = apply(Crois5,2,profil)
+p.col5 = cbind(prof.colonne5, pcm_Crois5=Crois5_marg[1:2,9]/sum(Crois5))
+
+somme_5 = apply(p.col5,2,sum)
+p.col5
+
+```
+
+### Test du Khi2 
+```{r}
+test5=chisq.test(Crois5)
+test5
+" effectifs théoriques"
+tab_obs5 = test5$expected
+round(tab_obs5,3)
+
+"Ecart entre effectifs observés et théoriques"
+ecart5 = tab_obs5-test5$observed 
+ecart5
+
+"Contribution des lignes à la statistique du chi 2"
+contrib.chi2_l5 = apply(test5$res^2,1,sum)
+round(contrib.chi2_l5,3)
+
+"Contribution des colonnes à la statistique du chi 2"
+contrib.chi2_col5 =apply(test5$res^2,2,sum)
+round(contrib.chi2_col5,3)
+
+"Indice du Khi2"
+test5$statistic
+```
+
+### Représentation des profils lignes 
+```{r}
+
+barplot(t(prop.table(Crois5,1)*100),
+        legend.text=colnames(Crois5),
+        cex.names=1,names.arg=c("Urbain","Rural"),
+        cex.axis=0.5,
+        main="Profils lignes du couple (HV025 HV024)",
+        col=c("darkorange","white", "cadetblue3", "green", "violet", "purple","darkgreen","brown"))
+
+
+```
+
+### Représentation des profils colonnes
+```{r}
+barplot(prop.table(Crois5,2)*100,
+        legend.text=c("Urbain","Rural"),
+        cex.names=0.8,
+        cex.axis=1,
+        main=" Répartition du milieu urbain et rural dans chaque région",
+        col=c("cadetblue3","orange"),horiz=T, las=1)
+```
+
+# Etape 3 : ACM 
+
+```{r}
+menage1 <- menage %>% select(cHV024, cHV025, cHV201, cHV205, cHV206, cHV207, cHV208, cHV209, cHV213, cHV214, cHV215, cHV221, cHV226, cHV227) 
+menage1_num <-  menage %>% select(HV024, HV025, HV201, HV205, HV206, HV207, HV208, HV209, HV213, HV214, HV215, HV221, HV226, HV227) 
+```
+
+### Suppression des données manquantes 
+```{r}
+menage1_num = subset(menage1_num,  HV201<96 & HV205<96 & HV206 <9 & HV207<9 & HV208<9 & HV209<9 & HV213<96 & HV214<96 & HV215<96 & HV221<9 & HV226<96 & HV227<9)
+```
+
+### Pourcentage des données manquantes 
+```{r}
+# 1-34657/36430 = 4.87%
+```
+
+
+## Source d'eau potable HV201
+
+```{r}
+menage1_num$HV201[(menage1_num$HV201 >= 30 & menage1_num$HV201 <= 32)| (menage1_num$HV201 >= 40 & menage1_num$HV201 < 71)] <- "Eau-" 
+menage1_num$HV201[menage1_num$HV201 == 20 | menage1_num$HV201 == 21] <- "Eau+" 
+menage1_num$HV201[menage1_num$HV201 >= 10 & menage1_num$HV201 <= 13| menage1_num$HV201 == 71] <- "Eau++"
+```
+
+## Type de toilettes HV205
+
+```{r}
+menage1_num$HV205[menage1_num$HV205 >= 30 & menage1_num$HV205 <= 43] <- "WC-"
+menage1_num$HV205[menage1_num$HV205 >= 20 & menage1_num$HV205 <= 23] <- "WC+" 
+menage1_num$HV205[menage1_num$HV205 >= 10 & menage1_num$HV205 <= 15] <- "WC++" 
+
+```
+
+## Accès à l'éléctricité HV206 
+
+```{r}
+menage1_num$HV206[menage1_num$HV206 == 1 ] <- "Elc+"
+menage1_num$HV206[menage1_num$HV206 == 0 ] <- "Elc-"
+
+```
+
+## Accès à la radio HV207
+
+```{r}
+menage1_num$HV207[menage1_num$HV207 == 1 ] <- "R+"
+menage1_num$HV207[menage1_num$HV207 == 0 ] <- "R-"
+```
+
+## Accès à la télévision HV208
+
+```{r}
+menage1_num$HV208[menage1_num$HV208 == 1 ] <- "TV+"
+menage1_num$HV208[menage1_num$HV208 == 0 ] <- "TV-" 
+```
+
+## Accès à un réfrigérateur HV209
+
+```{r}
+menage1_num$HV209[menage1_num$HV209 == 1 ] <- "Fr+"
+menage1_num$HV209[menage1_num$HV209 == 0 ] <- "Fr-"
+```
+
+## Matériel du sol HV213 
+```{r}
+menage1_num$HV213[menage1_num$HV213 == 11 | menage1_num$HV213 == 12 | menage1_num$HV213 == 35 ] <- "Sol-"
+menage1_num$HV213[menage1_num$HV213 == 21 | menage1_num$HV213 ==22| menage1_num$HV213 ==34 ] <- "Sol+"
+menage1_num$HV213[menage1_num$HV213 >= 31 & menage1_num$HV213 <= 33] <- "Sol++"
+
+```
+
+
+## Matériel du murs HV214 
+
+```{r}
+menage1_num$HV214[menage1_num$HV214 < 20] <- "Mur-"
+menage1_num$HV214[menage1_num$HV214 > 20] <- "Mur+"
+```
+
+
+## Matériel du toit HV215 
+
+```{r}
+menage1_num$HV215[menage1_num$HV215 < 20]<- "T-"
+menage1_num$HV215[menage1_num$HV215 > 20]<- "T+"
+
+```
+
+## Accès à un téléphone HV221
+
+```{r}
+menage1_num$HV221[menage1_num$HV221 == 1 ] <- "Tel+"
+menage1_num$HV221[menage1_num$HV221 == 0 ] <- "Tel-"
+
+```
+
+## Type de cuisine HV226 
+
+```{r}
+menage1_num$HV226[menage1_num$HV226 ==95 ] <- "Cui-"
+menage1_num$HV226[menage1_num$HV226 > 9  & menage1_num$HV226 <= 11|(menage1_num$HV226 == 9)] <- "Cui+"
+menage1_num$HV226[menage1_num$HV226 >= 1 & menage1_num$HV226 <= 8] <- "Cui++"
+```
+
+## Avoir une moustiquaire HV227
+```{r}
+menage1_num$HV227[menage1_num$HV227 == 1 ] <- "Mos+"
+menage1_num$HV227[menage1_num$HV227 == 0 ] <- "Mos-"
+
+```
+
+## Création de la table Burt et ACM 
+
+```{r}
+library(ade4)
+menage2 = menage1_num[,3:14]
+menage2 <- as.data.frame(menage2)
+
+for (i in 1:ncol(menage2)){
+   menage2[,i] <- as.factor(menage2[,i])
+   }
+menage2_burt<- acm.burt(menage2,menage2)
+
+# ACM 
+acm_menage2 = MCA(menage2, graph = TRUE, method="Burt")
+
+fviz_mca_var(acm_menage2, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE, 
+             ggtheme = theme_minimal()
+             )
+# Coordonnées 
+
+coord_menage2 <- round(( acm_menage2$var$coord[,-c(3,4,5)]), 3)
+contrib_menage2 <- round(( acm_menage2$var$contrib[,-c(3,4,5)]), 3)
+# Qualité de représentation  
+fviz_cos2(acm_menage2, choice = "var", axes = 1:2)
+eig <- round(acm_menage2$eig,5)
+
+
+```
+
+## Inertie 
+
+```{r}
+acm_menage2$eig[,1]
+
+barplot(acm_menage2$eig[,1], width = 3, cex.names = 0.8,col="cadetblue3", horiz = T, las = 1, main="Inertie restituée par chaque axe")  
+
+```
+
+## Contribution 
+Ici le nombre de variable est égal à 12 
+
+```{r}
+ctr_menage2 = (1/19)*(1-diag(as.matrix(menage2_burt))/dim(menage2)[1])
+ctr_menage2
+sum(ctr_menage2)
+```
+
+
+## Taux d'inertie modifiés 
+
+```{r}
+I_moy = 1/12
+I_moy
+delta = (acm_menage2$eig[1:2,1]-1/12)^2
+Itilde=delta/sum(delta);Itilde
+
+
+```
+On a que l'axe 1 qui a une inertie supérieure à l'inertie moyenne mais comme il est aussi facile de lire en 1 qu’en 2 dimension, on garde 2 axes. Puis, on calcule  les taux d'inertie modifiés et les comparer à l'inertie moyenne qui vaut dans notre cas environ 0.08. 
+Après la comparaison, on voit qu'on peut garder 2 axes. 
+
+
+## ACM à partir du tableau disjonctif complet 
+```{r}
+library(FactoMineR)
+TDC_menage = tab.disjonctif(menage2)
+t(TDC_menage)%*%TDC_menage
+acm_menage2_TDC = MCA(menage2, graph = TRUE, axes=c(1,2))
+fviz_mca_var(acm_menage2_TDC, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE, 
+             ggtheme = theme_minimal()
+             )
+
+```
+
+```{r}
+menage_prob <- menage1_num [, -c(8,9,12,14)]
+menage_prob <- as.data.frame(menage_prob)
+
+
+menage_prob$HV024[menage_prob$HV024 == 1] <- "Coast"
+menage_prob$HV024[menage_prob$HV024 == 2] <- "North Eastern"
+menage_prob$HV024[menage_prob$HV024 == 3] <- "Eastern"
+menage_prob$HV024[menage_prob$HV024 == 4] <- "Central"
+menage_prob$HV024[menage_prob$HV024 == 5] <- "Rift Valley"
+menage_prob$HV024[menage_prob$HV024 == 7] <- "Western"
+menage_prob$HV024[menage_prob$HV024 == 8] <- "Nyanza"
+menage_prob$HV024[menage_prob$HV024 == 9] <- "Nairobi"
+
+
+menage_prob$HV025[menage_prob$HV025 == 1] <- "Urban"
+menage_prob$HV025[menage_prob$HV025 == 2] <- "Rural"
+
+for (i in 1:ncol(menage_prob)){
+   menage_prob[,i] <- as.factor(menage_prob[,i])
+   }
+menage_prob_burt<- acm.burt(menage_prob,menage_prob)
+
+# ACM 
+acm_menage_prob = MCA(menage_prob, quali.sup = c(1,2), graph = TRUE, method="Burt")
+fviz_mca_var(acm_menage_prob, col.var = "contrib",col.ind="contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE, 
+             ggtheme = theme_minimal()
+             )
+acm_menage_prob$var$v.test
+
+
+
+coord_menage_prob <- round(( acm_menage_prob$var$coord[,-c(3,4,5)]), 3)
+contrib_menage_prob <- round(( acm_menage_prob$var$contrib[,-c(3,4,5)]), 3)
+# Qualité de représentation  
+fviz_cos2(acm_menage_prob, choice = "var", axes = 1:2)
+eig2 <- round(acm_menage_prob$eig,5)
+coord2 <- round(acm_menage_prob$var$coord,5)
+contri2 <- round(acm_menage_prob$var$contrib,5)
+vt <-  round(acm_menage_prob$quali.sup$v.test,5)
+
+```
+
+
+
+
+
+
+
+
+
+
